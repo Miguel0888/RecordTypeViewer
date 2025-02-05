@@ -224,7 +224,7 @@ public class RecordTypeService {
     public void applyInputFilter(List<JCheckBox> filterCheckBoxes) {
         Set<Integer> selectedIndices = new HashSet<>();
 
-        // Prüfe, welche Checkboxen aktiviert sind
+        // ✅ 1. Sammle Indexe der aktivierten Satzarten (Spalten)
         for (int i = 0; i < filterCheckBoxes.size(); i++) {
             if (filterCheckBoxes.get(i).isSelected()) {
                 selectedIndices.add(i);
@@ -232,17 +232,17 @@ public class RecordTypeService {
         }
 
         if (selectedIndices.isEmpty()) {
-            return;
+            return; // Keine aktiven Filter -> Keine Änderungen an allData
         }
 
-        // Mappe die gültigen Werte aus der aktuellen Table View
+        // ✅ 2. Werte aus der aktuellen Table View extrahieren
         Map<Integer, Set<String>> validValues = new HashMap<>();
+
         for (Integer index : selectedIndices) {
             validValues.put(index, new HashSet<>());
         }
 
-        // Durchlaufe alle Zeilen in der aktuellen Table View und speichere gültige Werte
-        for (String[] row : ui.getTableData()) {  // Holt die aktuell sichtbaren Daten aus Table View
+        for (String[] row : ui.getTableData()) {  // Holt alle angezeigten Zeilen aus Table View
             for (Integer index : selectedIndices) {
                 int start = filterDefinitions.get(index).getAsJsonObject().get("start").getAsInt();
                 int end = filterDefinitions.get(index).getAsJsonObject().get("end").getAsInt();
@@ -251,37 +251,47 @@ public class RecordTypeService {
             }
         }
 
-        // Neue gefilterte Liste erstellen
+        // ✅ 3. Neue Liste für `allData` erstellen
         List<String[]> newAllData = new ArrayList<>();
+
+        // ✅ 4. Jede Zeile aus `allData` prüfen
         for (String[] row : allData) {
-            boolean allMatch = true;  // Muss für alle gewählten Satzarten gültig sein
+            boolean rowMatches = true; // Muss für alle gewählten Satzarten passen
 
             for (Integer index : selectedIndices) {
                 int start = filterDefinitions.get(index).getAsJsonObject().get("start").getAsInt();
                 int end = filterDefinitions.get(index).getAsJsonObject().get("end").getAsInt();
                 String value = row[0].substring(start - 1, Math.min(end, row[0].length())).trim();
 
-                // Falls der Wert nicht in der aktuellen Ansicht vorkam, entferne Zeile aus `allData`
-                if (!validValues.get(index).contains(value)) {
-                    allMatch = false;
-                    break;  // Falls eine Satzart nicht passt -> Zeile verwerfen
+                // ✅ Bedingung: Mindestens eine Zeile aus Table View muss diesen Wert enthalten
+                boolean foundInView = false;
+                for (String[] tableRow : ui.getTableData()) {
+                    String tableValue = tableRow[0].substring(start - 1, Math.min(end, tableRow[0].length())).trim();
+                    if (tableValue.equals(value)) {
+                        foundInView = true;
+                        break;
+                    }
+                }
+
+                if (!foundInView) {
+                    rowMatches = false;
+                    break; // Falls eine Satzart nicht vorkommt, verwerfe Zeile
                 }
             }
 
-            if (allMatch) {
-                newAllData.add(row);  // Falls alle Satzarten gültig -> Behalte Zeile
+            if (rowMatches) {
+                newAllData.add(row); // ✅ Nur behalten, wenn ALLE Satzarten in einer Zeile der View vorkommen
             }
         }
 
-        // Überschreibe `allData` mit den gefilterten Daten
+        // ✅ 5. `allData` mit den gefilterten Daten überschreiben
         allData.clear();
         allData.addAll(newAllData);
 
-        // UI-Update
+        // ✅ 6. UI aktualisieren
         updateFilterCombos();
         ui.updateTable(allData);
     }
-
 
     public String getDefaultJson() {
         return DEFAULT_JSON;
