@@ -35,6 +35,7 @@ public class RecordTypeViewer extends JFrame {
             "    {\"name\": \"Payload\", \"start\": 40, \"end\": -1}\n" +
             "  ]\n" +
             "}";
+    private JsonObject rootNode;
 
     public RecordTypeViewer() {
         setTitle("Record Type Viewer");
@@ -64,15 +65,13 @@ public class RecordTypeViewer extends JFrame {
         // Zweite Toolbar (JSON-Definition laden)
         JToolBar configToolBar = new JToolBar();
         configToolBar.setFloatable(false);
-
         JButton loadConfigButton = new JButton("Load JSON");
         loadConfigButton.addActionListener(e -> loadJsonConfig());
         configToolBar.add(loadConfigButton);
-
         JLabel configLabel = new JLabel("Define Data Structure:");
         configToolBar.add(configLabel);
 
-        // Dritte Toolbar (Filter + Apply Button)
+        // Dritte Toolbar (Final-Filter + Apply Button)
         JToolBar filterToolBar = new JToolBar();
         filterToolBar.setFloatable(false);
         JButton applyFiltersButton = new JButton("Apply Filters");
@@ -136,6 +135,7 @@ public class RecordTypeViewer extends JFrame {
             }
             filteredData.addAll(allData);
             updateTable(filteredData);
+            setupDynamicFilterCombos(rootNode);
             statusLabel.setText("File loaded: " + file.getName());
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, "Error loading file: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -144,6 +144,7 @@ public class RecordTypeViewer extends JFrame {
 
     private void updateTable(List<String[]> data) {
         tableModel.setRowCount(0);
+        tableModel.setColumnIdentifiers(new String[]{"Raw Data"});
         for (String[] row : data) {
             tableModel.addRow(row);
         }
@@ -153,17 +154,47 @@ public class RecordTypeViewer extends JFrame {
         try {
             String jsonText = jsonStructureArea.getText();
             Gson gson = new Gson();
-            JsonObject rootNode = JsonParser.parseString(jsonText).getAsJsonObject();
+            rootNode = JsonParser.parseString(jsonText).getAsJsonObject();
+
             filterDefinitions = rootNode.getAsJsonArray("definition");
-            statusLabel.setText("JSON loaded!");
+            setupDynamicFilterCombos(rootNode);
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Invalid JSON configuration: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
+    private void setupDynamicFilterCombos(JsonObject rootNode) {
+        filterPanel.removeAll();
+        filterCombos.clear();
+        if (filterDefinitions == null) return;
+
+        for (int i = 0; i < filterDefinitions.size(); i++) {
+            JsonObject definition = filterDefinitions.get(i).getAsJsonObject();
+            String filterName = definition.get("name").getAsString();
+
+            JComboBox<String> comboBox = new JComboBox<>();
+            comboBox.addItem("");
+            extractColumnData(i).forEach(comboBox::addItem);
+
+            filterCombos.add(comboBox);
+            filterPanel.add(new JLabel(filterName + ":"));
+            filterPanel.add(comboBox);
+        }
+        filterPanel.revalidate();
+        filterPanel.repaint();
+    }
+
+    private List<String> extractColumnData(int index) {
+        Set<String> uniqueValues = new HashSet<>();
+        for (String[] row : allData) {
+            uniqueValues.add(row[0].substring(0, Math.min(row[0].length(), 10))); // Platzhalter
+        }
+        return new ArrayList<>(uniqueValues);
+    }
+
     private void applyPreFilter() {
         filteredData.clear();
-        filteredData.addAll(allData);  // Simulation einer Vorfilterung
+        filteredData.addAll(allData);
         updateTable(filteredData);
     }
 
@@ -176,8 +207,6 @@ public class RecordTypeViewer extends JFrame {
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            new RecordTypeViewer().setVisible(true);
-        });
+        SwingUtilities.invokeLater(() -> new RecordTypeViewer().setVisible(true));
     }
 }
