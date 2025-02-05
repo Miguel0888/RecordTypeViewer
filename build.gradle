@@ -33,7 +33,7 @@ java {
 jar {
     manifest {
         attributes(
-                'Main-Class': 'app.Main' // Die Main-Klasse, die gestartet werden soll
+                'Main-Class': 'app.RecordTypeViewer' // Die Main-Klasse, die gestartet werden soll
         )
     }
 }
