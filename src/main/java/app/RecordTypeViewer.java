@@ -31,23 +31,35 @@ public class RecordTypeViewer extends JFrame {
         table = new JTable(tableModel);
         JScrollPane tableScrollPane = new JScrollPane(table);
 
+        JTabbedPane tabbedPane = setUpToolbar(tableScrollPane);
+        add(tabbedPane, BorderLayout.CENTER);
+    }
+
+    private JTabbedPane setUpToolbar(JScrollPane tableScrollPane) {
         // Erste Toolbar (Dateioperationen)
         JToolBar fileToolBar = new JToolBar();
         fileToolBar.setFloatable(false);
         JButton openFileButton = new JButton("Open File");
         openFileButton.addActionListener(e -> openFile());
+        JButton exportDataButton = new JButton("Export All Data");  // 🆕 Export-Button
+        exportDataButton.addActionListener(e -> recordTypeService.exportAllData());
         statusLabel = new JLabel("No file loaded...");
         fileToolBar.add(openFileButton);
+        fileToolBar.add(exportDataButton);  // 🆕 Button rechts in der ersten Zeile
+        fileToolBar.add(Box.createHorizontalGlue());
         fileToolBar.add(statusLabel);
 
-        // Zweite Toolbar (JSON-Definition laden)
+        // Zweite Toolbar (JSON-Definition + Remove Selected Row)
         JToolBar configToolBar = new JToolBar();
         configToolBar.setFloatable(false);
         JButton loadConfigButton = new JButton("Load JSON");
         loadConfigButton.addActionListener(e -> loadJsonConfig());
+        JButton removeSelectedRowButton = new JButton("Remove Selected Row");  // 🆕 Entfernen-Button
+        removeSelectedRowButton.addActionListener(e -> removeSelectedRow());
         configToolBar.add(loadConfigButton);
-        JLabel configLabel = new JLabel("Define Data Structure:");
-        configToolBar.add(configLabel);
+        configToolBar.add(Box.createHorizontalGlue());
+        configToolBar.add(removeSelectedRowButton);  // 🆕 Button ganz rechts in der zweiten Zeile
+
 
         // Dritte Toolbar (Final-Filter + Apply Button)
         JToolBar filterToolBar = new JToolBar();
@@ -85,7 +97,17 @@ public class RecordTypeViewer extends JFrame {
 
         // Layout setzen
         add(toolBarPanel, BorderLayout.NORTH);
-        add(tabbedPane, BorderLayout.CENTER);
+        return tabbedPane;
+    }
+
+    // 🆕 Methode zum Entfernen der aktuell markierten Zeile
+    private void removeSelectedRow() {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow != -1) {
+            recordTypeService.removeRowFromData(selectedRow);
+        } else {
+            JOptionPane.showMessageDialog(this, "Please select a row to remove.", "No Selection", JOptionPane.WARNING_MESSAGE);
+        }
     }
 
     private void openFile() {

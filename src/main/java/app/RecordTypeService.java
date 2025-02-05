@@ -67,24 +67,27 @@ public class RecordTypeService {
         if (filterDefinitions == null) return;
 
         JPanel filterPanel = ui.getFilterPanel();
-        Component[] components = filterPanel.getComponents();
+        filterPanel.removeAll();  // ✅ Entfernt alle alten Comboboxen
 
-        int comboIndex = 0;
-        for (int i = 0; i < components.length; i++) {
-            if (components[i] instanceof JComboBox) {
-                JComboBox<String> comboBox = (JComboBox<String>) components[i];
-                comboBox.removeAllItems();
-                comboBox.addItem(""); // Leerer Eintrag
+        // Neue Comboboxen erstellen und füllen
+        for (int i = 0; i < filterDefinitions.size(); i++) {
+            JsonObject definition = filterDefinitions.get(i).getAsJsonObject();
+            String filterName = definition.get("name").getAsString();
 
-                // Werte aus `allData` extrahieren
-                Set<String> uniqueValues = extractColumnData(comboIndex);
-                for (String value : uniqueValues) {
-                    comboBox.addItem(value);
-                }
-                comboIndex++;
+            JComboBox<String> comboBox = new JComboBox<>();
+            comboBox.addItem(""); // Leerer Eintrag
+
+            // Werte aus `allData` extrahieren und hinzufügen
+            Set<String> uniqueValues = extractColumnData(i);
+            for (String value : uniqueValues) {
+                comboBox.addItem(value);
             }
+
+            filterPanel.add(new JLabel(filterName + ":"));
+            filterPanel.add(comboBox);
         }
 
+        // UI aktualisieren
         filterPanel.revalidate();
         filterPanel.repaint();
     }
@@ -95,30 +98,15 @@ public class RecordTypeService {
             JsonObject rootNode = JsonParser.parseString(jsonText).getAsJsonObject();
             filterDefinitions = rootNode.getAsJsonArray("definition");
 
+            // ✅ Komplett neue Filter-Comboboxen aufbauen
             setupDynamicFilterCombos();
-            setupFilterInputCheckboxes();
+
+            // ✅ Filter mit Werten aus `allData` befüllen
+            updateFilterCombosFromData();
+
         } catch (Exception e) {
             JOptionPane.showMessageDialog(ui, "Invalid JSON configuration: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
-    }
-
-    private void setupFilterInputCheckboxes() {
-        JPanel filterInputPanel = ui.getFilterInputPanel();
-        filterInputPanel.removeAll();
-        ui.getFilterCheckBoxes().clear();
-
-        for (int i = 0; i < filterDefinitions.size(); i++) {
-            JsonObject definition = filterDefinitions.get(i).getAsJsonObject();
-            String filterName = definition.get("name").getAsString();
-
-            JCheckBox checkBox = new JCheckBox(filterName);
-            checkBox.addActionListener(e -> updateFilterInputButtonState());
-            ui.getFilterCheckBoxes().add(checkBox);
-            filterInputPanel.add(checkBox);
-        }
-
-        filterInputPanel.revalidate();
-        filterInputPanel.repaint();
     }
 
     private void updateFilterInputButtonState() {
@@ -127,21 +115,40 @@ public class RecordTypeService {
     }
 
     private void setupDynamicFilterCombos() {
+        // ✅ 1. Alte Filter-Comboboxen und Checkboxen entfernen
         JPanel filterPanel = ui.getFilterPanel();
-        filterPanel.removeAll();
+        JPanel filterInputPanel = ui.getFilterInputPanel();
 
+        filterPanel.removeAll();         // Entferne alle alten Filter-Dropdowns
+        filterInputPanel.removeAll();    // Entferne alle alten Checkboxen
+        ui.getFilterCheckBoxes().clear(); // Lösche die Liste der Checkboxen
+
+        // ✅ 2. Neue Filter-Comboboxen und Checkboxen erstellen
         for (int i = 0; i < filterDefinitions.size(); i++) {
             JsonObject definition = filterDefinitions.get(i).getAsJsonObject();
             String filterName = definition.get("name").getAsString();
 
+            // 🔹 Erstelle Combobox für den Filter
             JComboBox<String> comboBox = new JComboBox<>();
             comboBox.addItem("");  // Leerer Eintrag zum Abwählen
             filterPanel.add(new JLabel(filterName + ":"));
             filterPanel.add(comboBox);
+
+            // 🔹 Erstelle Checkbox für "Filter Input"
+            JCheckBox checkBox = new JCheckBox(filterName);
+            checkBox.addActionListener(e -> updateFilterInputButtonState());
+
+            ui.getFilterCheckBoxes().add(checkBox);
+            filterInputPanel.add(checkBox);
         }
+
+        // ✅ 3. UI-Update
         filterPanel.revalidate();
         filterPanel.repaint();
+        filterInputPanel.revalidate();
+        filterInputPanel.repaint();
     }
+
 
     private void updateFilterCombos() {
         JPanel filterPanel = ui.getFilterPanel();
@@ -278,5 +285,31 @@ public class RecordTypeService {
 
     public String getDefaultJson() {
         return DEFAULT_JSON;
+    }
+
+    public void removeRowFromData(int rowIndex) {
+        if (rowIndex >= 0 && rowIndex < allData.size()) {
+            allData.remove(rowIndex);
+            ui.updateTable(allData);  // Aktualisiere UI nach Entfernung
+        }
+    }
+
+    public void exportAllData() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Save Export File");
+        int userSelection = fileChooser.showSaveDialog(ui);
+
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            File fileToSave = fileChooser.getSelectedFile();
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileToSave))) {
+                for (String[] row : allData) {
+                    writer.write(row[0]);  // Schreibe jede Zeile von allData in die Datei
+                    writer.newLine();
+                }
+                JOptionPane.showMessageDialog(ui, "Data successfully exported!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(ui, "Error exporting data: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 }
