@@ -117,8 +117,13 @@ public class RecordTypeService {
         int end = filterDefinitions.get(index).getAsJsonObject().get("end").getAsInt();
 
         for (String[] row : allData) {
-            if (row[0].length() >= start) {
-                String value = row[0].substring(start - 1, Math.min(end, row[0].length())).trim();
+            if (row[0].length() >= start) {  // Verhindert OutOfBounds-Fehler
+                String value;
+                if (end == -1 || end > row[0].length()) {
+                    value = row[0].substring(start - 1).trim();  // Bis zum Ende des Strings
+                } else {
+                    value = row[0].substring(start - 1, end).trim();
+                }
                 uniqueValues.add(value);
             }
         }
