@@ -13,16 +13,17 @@ import java.util.*;
 import java.util.List;
 
 public class RecordTypeViewer extends JFrame {
-    private JTable table;
-    private DefaultTableModel tableModel;
+    private JTable table, preFilterTable;
+    private DefaultTableModel tableModel, preFilterTableModel;
     private JLabel statusLabel;
     private JTextArea jsonStructureArea;
-    private JPanel filterPanel;
-    private List<JComboBox<String>> filterCombos;
+    private JPanel filterPanel, preFilterPanel;
+    private List<JComboBox<String>> filterCombos, preFilterCombos;
     private List<String[]> allData = new ArrayList<>();
+    private List<String[]> filteredData = new ArrayList<>();
     private JsonArray filterDefinitions;
+    private Set<String> selectedIDs = new HashSet<>();
 
-    // Standard JSON-Vorbelegung
     private static final String DEFAULT_JSON = "{\n" +
             "  \"filters\": [\"Prefix\", \"ID\", \"Operation\", \"Stelle\", \"Type\", \"Payload\"],\n" +
             "  \"definition\": [\n" +
@@ -41,10 +42,14 @@ public class RecordTypeViewer extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // Tabellenmodell und Tabelle
+        // Tabellen für Table View und Pre-Filter View
         tableModel = new DefaultTableModel();
         table = new JTable(tableModel);
         JScrollPane tableScrollPane = new JScrollPane(table);
+
+        preFilterTableModel = new DefaultTableModel();
+        preFilterTable = new JTable(preFilterTableModel);
+        JScrollPane preFilterTableScrollPane = new JScrollPane(preFilterTable);
 
         // Erste Toolbar (Dateioperationen)
         JToolBar fileToolBar = new JToolBar();
@@ -52,50 +57,64 @@ public class RecordTypeViewer extends JFrame {
 
         JButton openFileButton = new JButton("Open File");
         openFileButton.addActionListener(e -> openFile());
-        JButton applyFiltersButton = new JButton("Apply Filters");
-        applyFiltersButton.addActionListener(e -> applyFilters());
-
-        fileToolBar.add(openFileButton);
-        fileToolBar.add(applyFiltersButton);
         statusLabel = new JLabel("No file loaded...");
+        fileToolBar.add(openFileButton);
         fileToolBar.add(statusLabel);
 
         // Zweite Toolbar (JSON-Definition laden)
         JToolBar configToolBar = new JToolBar();
         configToolBar.setFloatable(false);
 
-        JLabel configLabel = new JLabel("Define Data Structure:");
         JButton loadConfigButton = new JButton("Load JSON");
         loadConfigButton.addActionListener(e -> loadJsonConfig());
-        configToolBar.add(configLabel);
         configToolBar.add(loadConfigButton);
 
-        // Dritte Toolbar (Filter)
+        JLabel configLabel = new JLabel("Define Data Structure:");
+        configToolBar.add(configLabel);
+
+        // Dritte Toolbar (Filter + Apply Button)
         JToolBar filterToolBar = new JToolBar();
         filterToolBar.setFloatable(false);
+        JButton applyFiltersButton = new JButton("Apply Filters");
+        applyFiltersButton.addActionListener(e -> applyFilters());
         filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        filterToolBar.add(applyFiltersButton);
         filterToolBar.add(filterPanel);
 
-        // Panel für die Toolbars
+        // Vierte Toolbar für Pre-Filter
+        JToolBar preFilterToolBar = new JToolBar();
+        preFilterToolBar.setFloatable(false);
+        JButton applyPreFilterButton = new JButton("Apply Pre-Filter");
+        applyPreFilterButton.addActionListener(e -> applyPreFilter());
+        preFilterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        preFilterToolBar.add(applyPreFilterButton);
+        preFilterToolBar.add(preFilterPanel);
+
+        // Panel für Toolbars
         JPanel toolBarPanel = new JPanel(new GridLayout(3, 1));
         toolBarPanel.add(fileToolBar);
         toolBarPanel.add(configToolBar);
         toolBarPanel.add(filterToolBar);
 
-        // Tabs für die Tabelle und die JSON-Struktur
+        // Tabs für die verschiedenen Ansichten
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.addTab("Table View", tableScrollPane);
-
         jsonStructureArea = new JTextArea(10, 50);
-        jsonStructureArea.setText(DEFAULT_JSON); // **JSON beim Start vorbelegen**
+        jsonStructureArea.setText(DEFAULT_JSON);
         JScrollPane jsonScrollPane = new JScrollPane(jsonStructureArea);
         tabbedPane.addTab("Define Structure (JSON)", jsonScrollPane);
+
+        JPanel preFilterPanelContainer = new JPanel(new BorderLayout());
+        preFilterPanelContainer.add(preFilterToolBar, BorderLayout.NORTH);
+        preFilterPanelContainer.add(preFilterTableScrollPane, BorderLayout.CENTER);
+        tabbedPane.addTab("Pre-Filter View", preFilterPanelContainer);
 
         // Layout setzen
         add(toolBarPanel, BorderLayout.NORTH);
         add(tabbedPane, BorderLayout.CENTER);
 
         filterCombos = new ArrayList<>();
+        preFilterCombos = new ArrayList<>();
     }
 
     private void openFile() {
@@ -109,12 +128,14 @@ public class RecordTypeViewer extends JFrame {
 
     private void loadData(File file) {
         allData.clear();
+        filteredData.clear();
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 allData.add(new String[]{line});
             }
-            updateTable(allData);
+            filteredData.addAll(allData);
+            updateTable(filteredData);
             statusLabel.setText("File loaded: " + file.getName());
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, "Error loading file: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -123,7 +144,6 @@ public class RecordTypeViewer extends JFrame {
 
     private void updateTable(List<String[]> data) {
         tableModel.setRowCount(0);
-        tableModel.setColumnIdentifiers(new String[]{"Raw Data"});
         for (String[] row : data) {
             tableModel.addRow(row);
         }
@@ -134,64 +154,25 @@ public class RecordTypeViewer extends JFrame {
             String jsonText = jsonStructureArea.getText();
             Gson gson = new Gson();
             JsonObject rootNode = JsonParser.parseString(jsonText).getAsJsonObject();
-
             filterDefinitions = rootNode.getAsJsonArray("definition");
-            setupDynamicFilterCombos(rootNode);
+            statusLabel.setText("JSON loaded!");
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Invalid JSON configuration: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    private void setupDynamicFilterCombos(JsonObject rootNode) {
-        filterPanel.removeAll();
-        filterCombos.clear();
-
-        JsonArray filters = rootNode.getAsJsonArray("filters");
-        for (int i = 0; i < filters.size(); i++) {
-            String filterName = filters.get(i).getAsString();
-            JComboBox<String> comboBox = new JComboBox<>();
-            comboBox.addItem(""); // Leerer Eintrag zum Abwählen
-            extractColumnData(i).forEach(comboBox::addItem);
-
-            filterCombos.add(comboBox);
-            filterPanel.add(new JLabel(filterName + ":"));
-            filterPanel.add(comboBox);
-        }
-        filterPanel.revalidate();
-        filterPanel.repaint();
-    }
-
-    private List<String> extractColumnData(int index) {
-        Set<String> uniqueValues = new HashSet<>();
-        int start = filterDefinitions.get(index).getAsJsonObject().get("start").getAsInt();
-        int end = filterDefinitions.get(index).getAsJsonObject().get("end").getAsInt();
-
-        for (String[] row : allData) {
-            if (row[0].length() >= end || end == -1) {
-                uniqueValues.add(row[0].substring(start - 1, end == -1 ? row[0].length() : end).trim());
-            }
-        }
-        return new ArrayList<>(uniqueValues);
+    private void applyPreFilter() {
+        filteredData.clear();
+        filteredData.addAll(allData);  // Simulation einer Vorfilterung
+        updateTable(filteredData);
     }
 
     private void applyFilters() {
-        List<String[]> filteredData = new ArrayList<>();
-        outerLoop:
-        for (String[] row : allData) {
-            for (int i = 0; i < filterCombos.size(); i++) {
-                String selectedFilter = (String) filterCombos.get(i).getSelectedItem();
-                if (selectedFilter != null && !selectedFilter.isEmpty()) {
-                    int start = filterDefinitions.get(i).getAsJsonObject().get("start").getAsInt();
-                    int end = filterDefinitions.get(i).getAsJsonObject().get("end").getAsInt();
-
-                    if (!row[0].substring(start - 1, end == -1 ? row[0].length() : end).trim().equals(selectedFilter)) {
-                        continue outerLoop;
-                    }
-                }
-            }
-            filteredData.add(row);
+        List<String[]> finalFilteredData = new ArrayList<>();
+        for (String[] row : filteredData) {
+            finalFilteredData.add(row);
         }
-        updateTable(filteredData);
+        updateTable(finalFilteredData);
     }
 
     public static void main(String[] args) {
