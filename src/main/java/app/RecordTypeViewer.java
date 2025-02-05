@@ -4,6 +4,7 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.io.File;
+import java.util.*;
 import java.util.List;
 
 public class RecordTypeViewer extends JFrame {
@@ -11,12 +12,14 @@ public class RecordTypeViewer extends JFrame {
     private DefaultTableModel tableModel;
     private JLabel statusLabel;
     private JTextArea jsonStructureArea;
-    private JPanel filterPanel;
+    private JPanel filterPanel, filterInputPanel;
+    private JButton filterInputButton;
+    private List<JCheckBox> filterCheckBoxes = new ArrayList<>();
     private RecordTypeService recordTypeService;
 
     public RecordTypeViewer() {
         setTitle("Record Type Viewer");
-        setSize(1024, 768);
+        setSize(1024, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
@@ -55,11 +58,22 @@ public class RecordTypeViewer extends JFrame {
         filterToolBar.add(applyFiltersButton);
         filterToolBar.add(filterPanel);
 
+        // Vierte Toolbar (Filter Input)
+        JToolBar filterInputToolBar = new JToolBar();
+        filterInputToolBar.setFloatable(false);
+        filterInputButton = new JButton("Filter Input");
+        filterInputButton.setEnabled(false);
+        filterInputButton.addActionListener(e -> applyInputFilter());
+        filterInputPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        filterInputToolBar.add(filterInputButton);
+        filterInputToolBar.add(filterInputPanel);
+
         // Panel für Toolbars
-        JPanel toolBarPanel = new JPanel(new GridLayout(3, 1));
+        JPanel toolBarPanel = new JPanel(new GridLayout(4, 1));
         toolBarPanel.add(fileToolBar);
         toolBarPanel.add(configToolBar);
         toolBarPanel.add(filterToolBar);
+        toolBarPanel.add(filterInputToolBar);
 
         // Tabs für die verschiedenen Ansichten
         JTabbedPane tabbedPane = new JTabbedPane();
@@ -91,10 +105,14 @@ public class RecordTypeViewer extends JFrame {
         recordTypeService.applyFilters();
     }
 
+    private void applyInputFilter() {
+        recordTypeService.applyInputFilter(filterCheckBoxes);
+    }
+
     public void updateTable(List<String[]> data) {
         tableModel.setRowCount(0);
 
-        // ✅ Stelle sicher, dass die Spaltenüberschrift gesetzt ist
+        // Stelle sicher, dass die Spaltenüberschrift gesetzt ist
         if (tableModel.getColumnCount() == 0) {
             tableModel.setColumnIdentifiers(new String[]{"Raw Data"});
         }
@@ -110,6 +128,18 @@ public class RecordTypeViewer extends JFrame {
 
     public JPanel getFilterPanel() {
         return filterPanel;
+    }
+
+    public JPanel getFilterInputPanel() {
+        return filterInputPanel;
+    }
+
+    public JButton getFilterInputButton() {
+        return filterInputButton;
+    }
+
+    public List<JCheckBox> getFilterCheckBoxes() {
+        return filterCheckBoxes;
     }
 
     public JTextArea getJsonStructureArea() {

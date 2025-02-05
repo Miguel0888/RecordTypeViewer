@@ -159,6 +159,62 @@ public class RecordTypeService {
         ui.updateTable(finalFilteredData);
     }
 
+    public void applyInputFilter(List<JCheckBox> filterCheckBoxes) {
+        Set<Integer> selectedIndices = new HashSet<>();
+
+        // Prüfe, welche Checkboxen aktiviert sind
+        for (int i = 0; i < filterCheckBoxes.size(); i++) {
+            if (filterCheckBoxes.get(i).isSelected()) {
+                selectedIndices.add(i);
+            }
+        }
+
+        // Wenn keine Filter aktiv sind, beende die Methode
+        if (selectedIndices.isEmpty()) {
+            return;
+        }
+
+        Set<String> allowedValues = new HashSet<>();
+
+        // Sammle erlaubte Werte aus Table View
+        for (String[] row : filteredData) {
+            for (Integer index : selectedIndices) {
+                int start = filterDefinitions.get(index).getAsJsonObject().get("start").getAsInt();
+                int end = filterDefinitions.get(index).getAsJsonObject().get("end").getAsInt();
+                String value = row[0].substring(start - 1, Math.min(end, row[0].length())).trim();
+                allowedValues.add(value);
+            }
+        }
+
+        // Neue gefilterte Liste erstellen
+        List<String[]> newAllData = new ArrayList<>();
+        for (String[] row : allData) {
+            boolean match = false;
+            for (Integer index : selectedIndices) {
+                int start = filterDefinitions.get(index).getAsJsonObject().get("start").getAsInt();
+                int end = filterDefinitions.get(index).getAsJsonObject().get("end").getAsInt();
+                String value = row[0].substring(start - 1, Math.min(end, row[0].length())).trim();
+
+                if (allowedValues.contains(value)) {
+                    match = true;
+                    break;
+                }
+            }
+            if (match) {
+                newAllData.add(row);
+            }
+        }
+
+        // Überschreibe allData mit den gefilterten Daten
+        allData.clear();
+        allData.addAll(newAllData);
+
+        // UI-Update
+        updateFilterCombos();
+        ui.updateTable(allData);
+    }
+
+
     public String getDefaultJson() {
         return DEFAULT_JSON;
     }
