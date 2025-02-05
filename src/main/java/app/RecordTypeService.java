@@ -41,6 +41,11 @@ public class RecordTypeService {
                 allData.add(new String[]{line});
             }
             filteredData.addAll(allData);
+
+            // ✅ Status-Label aktualisieren
+            ui.updateStatus("File loaded: " + file.getName());
+
+            // ✅ Tabelle richtig aktualisieren
             ui.updateTable(filteredData);
         } catch (IOException e) {
             JOptionPane.showMessageDialog(ui, "Error loading file: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

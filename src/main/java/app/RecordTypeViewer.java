@@ -65,7 +65,7 @@ public class RecordTypeViewer extends JFrame {
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.addTab("Table View", tableScrollPane);
         jsonStructureArea = new JTextArea(10, 50);
-        jsonStructureArea.setText(recordTypeService.getDefaultJson()); // KORREKT!
+        jsonStructureArea.setText(recordTypeService.getDefaultJson());
         JScrollPane jsonScrollPane = new JScrollPane(jsonStructureArea);
         tabbedPane.addTab("Define Structure (JSON)", jsonScrollPane);
 
@@ -93,9 +93,19 @@ public class RecordTypeViewer extends JFrame {
 
     public void updateTable(List<String[]> data) {
         tableModel.setRowCount(0);
+
+        // ✅ Stelle sicher, dass die Spaltenüberschrift gesetzt ist
+        if (tableModel.getColumnCount() == 0) {
+            tableModel.setColumnIdentifiers(new String[]{"Raw Data"});
+        }
+
         for (String[] row : data) {
             tableModel.addRow(row);
         }
+    }
+
+    public void updateStatus(String message) {
+        statusLabel.setText(message);
     }
 
     public JPanel getFilterPanel() {
