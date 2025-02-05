@@ -6,8 +6,10 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import javax.swing.*;
+import java.awt.*;
 import java.io.*;
 import java.util.*;
+import java.util.List;
 
 public class RecordTypeService {
     private RecordTypeViewer ui;
@@ -47,6 +49,11 @@ public class RecordTypeService {
 
             // ✅ Tabelle richtig aktualisieren
             ui.updateTable(filteredData);
+
+            // ✅ Filter-Comboboxen mit neuen Daten füllen
+            if (filterDefinitions != null) {
+                updateFilterCombos();
+            }
         } catch (IOException e) {
             JOptionPane.showMessageDialog(ui, "Error loading file: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -58,13 +65,13 @@ public class RecordTypeService {
             JsonObject rootNode = JsonParser.parseString(jsonText).getAsJsonObject();
             filterDefinitions = rootNode.getAsJsonArray("definition");
 
-            setupDynamicFilterCombos(rootNode);
+            setupDynamicFilterCombos();
         } catch (Exception e) {
             JOptionPane.showMessageDialog(ui, "Invalid JSON configuration: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    private void setupDynamicFilterCombos(JsonObject rootNode) {
+    private void setupDynamicFilterCombos() {
         JPanel filterPanel = ui.getFilterPanel();
         filterPanel.removeAll();
 
@@ -73,7 +80,7 @@ public class RecordTypeService {
             String filterName = definition.get("name").getAsString();
 
             JComboBox<String> comboBox = new JComboBox<>();
-            comboBox.addItem("");
+            comboBox.addItem("");  // Leerer Eintrag zum Abwählen
             filterPanel.add(new JLabel(filterName + ":"));
             filterPanel.add(comboBox);
         }
@@ -81,14 +88,69 @@ public class RecordTypeService {
         filterPanel.repaint();
     }
 
-    public void applyPreFilter() {
-        filteredData.clear();
-        filteredData.addAll(allData);
-        ui.updateTable(filteredData);
+    private void updateFilterCombos() {
+        JPanel filterPanel = ui.getFilterPanel();
+        Component[] components = filterPanel.getComponents();
+
+        int comboIndex = 0;
+        for (int i = 0; i < components.length; i++) {
+            if (components[i] instanceof JComboBox) {
+                JComboBox<String> comboBox = (JComboBox<String>) components[i];
+                comboBox.removeAllItems();
+                comboBox.addItem(""); // Leerer Eintrag
+
+                // Werte aus `allData` extrahieren
+                Set<String> uniqueValues = extractColumnData(comboIndex);
+                for (String value : uniqueValues) {
+                    comboBox.addItem(value);
+                }
+                comboIndex++;
+            }
+        }
+    }
+
+    private Set<String> extractColumnData(int index) {
+        Set<String> uniqueValues = new HashSet<>();
+        if (filterDefinitions == null) return uniqueValues;
+
+        int start = filterDefinitions.get(index).getAsJsonObject().get("start").getAsInt();
+        int end = filterDefinitions.get(index).getAsJsonObject().get("end").getAsInt();
+
+        for (String[] row : allData) {
+            if (row[0].length() >= start) {
+                String value = row[0].substring(start - 1, Math.min(end, row[0].length())).trim();
+                uniqueValues.add(value);
+            }
+        }
+        return uniqueValues;
     }
 
     public void applyFilters() {
-        List<String[]> finalFilteredData = new ArrayList<>(filteredData);
+        List<String[]> finalFilteredData = new ArrayList<>();
+        JPanel filterPanel = ui.getFilterPanel();
+        Component[] components = filterPanel.getComponents();
+
+        outerLoop:
+        for (String[] row : allData) {
+            int comboIndex = 0;
+            for (int i = 0; i < components.length; i++) {
+                if (components[i] instanceof JComboBox) {
+                    JComboBox<String> comboBox = (JComboBox<String>) components[i];
+                    String selectedFilter = (String) comboBox.getSelectedItem();
+                    if (selectedFilter != null && !selectedFilter.isEmpty()) {
+                        int start = filterDefinitions.get(comboIndex).getAsJsonObject().get("start").getAsInt();
+                        int end = filterDefinitions.get(comboIndex).getAsJsonObject().get("end").getAsInt();
+                        String rowValue = row[0].substring(start - 1, Math.min(end, row[0].length())).trim();
+
+                        if (!rowValue.equals(selectedFilter)) {
+                            continue outerLoop;
+                        }
+                    }
+                    comboIndex++;
+                }
+            }
+            finalFilteredData.add(row);
+        }
         ui.updateTable(finalFilteredData);
     }
 
