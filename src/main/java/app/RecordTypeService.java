@@ -235,9 +235,8 @@ public class RecordTypeService {
             return; // Keine aktiven Filter -> Keine Änderungen an allData
         }
 
-        // ✅ 2. Werte aus der aktuellen Table View extrahieren
-        Map<Integer, Set<String>> validValues = new HashMap<>();
-
+        // ✅ 2. Werte aus der aktuellen Table View extrahieren und in HashMap speichern
+        Map<Integer, HashSet<String>> validValues = new HashMap<>();
         for (Integer index : selectedIndices) {
             validValues.put(index, new HashSet<>());
         }
@@ -247,40 +246,31 @@ public class RecordTypeService {
                 int start = filterDefinitions.get(index).getAsJsonObject().get("start").getAsInt();
                 int end = filterDefinitions.get(index).getAsJsonObject().get("end").getAsInt();
                 String value = row[0].substring(start - 1, Math.min(end, row[0].length())).trim();
-                validValues.get(index).add(value);
+                validValues.get(index).add(value);  // ✅ Schneller Zugriff durch HashSet
             }
         }
 
         // ✅ 3. Neue Liste für `allData` erstellen
         List<String[]> newAllData = new ArrayList<>();
 
-        // ✅ 4. Jede Zeile aus `allData` prüfen
+        // ✅ 4. Prüfen, ob jede Zeile aus `allData` mindestens einen Treffer in `validValues` hat
         for (String[] row : allData) {
-            boolean rowMatches = true; // Muss für alle gewählten Satzarten passen
+            boolean allMatch = true; // Muss für alle gewählten Satzarten passen
 
             for (Integer index : selectedIndices) {
                 int start = filterDefinitions.get(index).getAsJsonObject().get("start").getAsInt();
                 int end = filterDefinitions.get(index).getAsJsonObject().get("end").getAsInt();
                 String value = row[0].substring(start - 1, Math.min(end, row[0].length())).trim();
 
-                // ✅ Bedingung: Mindestens eine Zeile aus Table View muss diesen Wert enthalten
-                boolean foundInView = false;
-                for (String[] tableRow : ui.getTableData()) {
-                    String tableValue = tableRow[0].substring(start - 1, Math.min(end, tableRow[0].length())).trim();
-                    if (tableValue.equals(value)) {
-                        foundInView = true;
-                        break;
-                    }
-                }
-
-                if (!foundInView) {
-                    rowMatches = false;
-                    break; // Falls eine Satzart nicht vorkommt, verwerfe Zeile
+                // ✅ Direktes HashSet-Lookup statt einer for-Schleife (O(1) statt O(n))
+                if (!validValues.get(index).contains(value)) {
+                    allMatch = false;
+                    break; // Falls eine Satzart nicht passt, verwerfe Zeile sofort
                 }
             }
 
-            if (rowMatches) {
-                newAllData.add(row); // ✅ Nur behalten, wenn ALLE Satzarten in einer Zeile der View vorkommen
+            if (allMatch) {
+                newAllData.add(row); // ✅ Nur behalten, wenn ALLE Satzarten mindestens einmal vorkommen
             }
         }
 
