@@ -142,6 +142,7 @@ public class RecordTypeViewer extends JFrame {
         return filterCheckBoxes;
     }
 
+
     public JTextArea getJsonStructureArea() {
         return jsonStructureArea;
     }

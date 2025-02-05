@@ -66,9 +66,34 @@ public class RecordTypeService {
             filterDefinitions = rootNode.getAsJsonArray("definition");
 
             setupDynamicFilterCombos();
+            setupFilterInputCheckboxes();
         } catch (Exception e) {
             JOptionPane.showMessageDialog(ui, "Invalid JSON configuration: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void setupFilterInputCheckboxes() {
+        JPanel filterInputPanel = ui.getFilterInputPanel();
+        filterInputPanel.removeAll();
+        ui.getFilterCheckBoxes().clear();
+
+        for (int i = 0; i < filterDefinitions.size(); i++) {
+            JsonObject definition = filterDefinitions.get(i).getAsJsonObject();
+            String filterName = definition.get("name").getAsString();
+
+            JCheckBox checkBox = new JCheckBox(filterName);
+            checkBox.addActionListener(e -> updateFilterInputButtonState());
+            ui.getFilterCheckBoxes().add(checkBox);
+            filterInputPanel.add(checkBox);
+        }
+
+        filterInputPanel.revalidate();
+        filterInputPanel.repaint();
+    }
+
+    private void updateFilterInputButtonState() {
+        boolean anySelected = ui.getFilterCheckBoxes().stream().anyMatch(JCheckBox::isSelected);
+        ui.getFilterInputButton().setEnabled(anySelected);
     }
 
     private void setupDynamicFilterCombos() {
@@ -162,31 +187,31 @@ public class RecordTypeService {
     public void applyInputFilter(List<JCheckBox> filterCheckBoxes) {
         Set<Integer> selectedIndices = new HashSet<>();
 
-        // Prüfe, welche Checkboxen aktiviert sind
         for (int i = 0; i < filterCheckBoxes.size(); i++) {
             if (filterCheckBoxes.get(i).isSelected()) {
                 selectedIndices.add(i);
             }
         }
 
-        // Wenn keine Filter aktiv sind, beende die Methode
         if (selectedIndices.isEmpty()) {
             return;
         }
 
-        Set<String> allowedValues = new HashSet<>();
+        Map<Integer, Set<String>> validValues = new HashMap<>();
 
-        // Sammle erlaubte Werte aus Table View
+        for (Integer index : selectedIndices) {
+            validValues.put(index, new HashSet<>());
+        }
+
         for (String[] row : filteredData) {
             for (Integer index : selectedIndices) {
                 int start = filterDefinitions.get(index).getAsJsonObject().get("start").getAsInt();
                 int end = filterDefinitions.get(index).getAsJsonObject().get("end").getAsInt();
                 String value = row[0].substring(start - 1, Math.min(end, row[0].length())).trim();
-                allowedValues.add(value);
+                validValues.get(index).add(value);
             }
         }
 
-        // Neue gefilterte Liste erstellen
         List<String[]> newAllData = new ArrayList<>();
         for (String[] row : allData) {
             boolean match = false;
@@ -195,7 +220,7 @@ public class RecordTypeService {
                 int end = filterDefinitions.get(index).getAsJsonObject().get("end").getAsInt();
                 String value = row[0].substring(start - 1, Math.min(end, row[0].length())).trim();
 
-                if (allowedValues.contains(value)) {
+                if (validValues.get(index).contains(value)) {
                     match = true;
                     break;
                 }
@@ -205,15 +230,12 @@ public class RecordTypeService {
             }
         }
 
-        // Überschreibe allData mit den gefilterten Daten
         allData.clear();
         allData.addAll(newAllData);
 
-        // UI-Update
         updateFilterCombos();
         ui.updateTable(allData);
     }
-
 
     public String getDefaultJson() {
         return DEFAULT_JSON;
