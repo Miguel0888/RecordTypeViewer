@@ -150,4 +150,13 @@ public class RecordTypeViewer extends JFrame {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new RecordTypeViewer().setVisible(true));
     }
+
+    public List<String[]> getTableData() {
+        List<String[]> tableData = new ArrayList<>();
+        for (int i = 0; i < table.getRowCount(); i++) {
+            tableData.add(new String[]{(String) table.getValueAt(i, 0)});
+        }
+        return tableData;
+    }
+
 }
