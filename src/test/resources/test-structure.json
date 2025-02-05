@@ -1,0 +1,11 @@
+{
+  "filters": ["Prefix", "ID", "Operation", "Stelle", "Type", "Payload"],
+  "definition": [
+    {"name": "Prefix", "start": 1, "end": 5},
+    {"name": "ID", "start": 6, "end": 13},
+    {"name": "Operation", "start": 14, "end": 18},
+    {"name": "Stelle", "start": 19, "end": 36},
+    {"name": "Type", "start": 37, "end": 39},
+    {"name": "Payload", "start": 40, "end": -1}
+  ]
+}

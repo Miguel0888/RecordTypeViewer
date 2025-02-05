@@ -1,0 +1,47 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '8.1.1' //um Fat-Jar mit allen Dependendies zu erzeugen
+}
+
+group = 'org.example'
+version = '1.0-SNAPSHOT'
+
+group = 'RTV'
+version = '1.0.0'
+
+repositories {
+    mavenCentral() // Hier wird definiert, wo die Abhängigkeiten gesucht werden
+}
+
+dependencies {
+    implementation 'ch.qos.logback:logback-classic:1.2.11' // letzte Java 8-kompatible Version
+    implementation 'com.google.code.gson:gson:2.8.9'
+
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'app.Main' // Die Main-Klasse, die gestartet werden soll
+        )
+    }
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs.add('-Xlint:-options')
+}
