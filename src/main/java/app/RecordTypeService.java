@@ -44,19 +44,49 @@ public class RecordTypeService {
             }
             filteredData.addAll(allData);
 
-            // ✅ Status-Label aktualisieren
-            ui.updateStatus("File loaded: " + file.getName());
+            // ✅ Falls JSON noch nicht geladen wurde, Standard-JSON laden
+            if (filterDefinitions == null) {
+                loadJsonConfig(ui.getJsonStructureArea().getText());
+            }
 
-            // ✅ Tabelle richtig aktualisieren
+            // ✅ Tabelle aktualisieren
             ui.updateTable(filteredData);
 
-            // ✅ Filter-Comboboxen mit neuen Daten füllen
-            if (filterDefinitions != null) {
-                updateFilterCombos();
-            }
+            // ✅ Jetzt die Comboboxen füllen, damit sie korrekt angezeigt werden
+            updateFilterCombosFromData();
+
+            // ✅ Status aktualisieren
+            ui.updateStatus("File loaded: " + file.getName());
+
         } catch (IOException e) {
             JOptionPane.showMessageDialog(ui, "Error loading file: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void updateFilterCombosFromData() {
+        if (filterDefinitions == null) return;
+
+        JPanel filterPanel = ui.getFilterPanel();
+        Component[] components = filterPanel.getComponents();
+
+        int comboIndex = 0;
+        for (int i = 0; i < components.length; i++) {
+            if (components[i] instanceof JComboBox) {
+                JComboBox<String> comboBox = (JComboBox<String>) components[i];
+                comboBox.removeAllItems();
+                comboBox.addItem(""); // Leerer Eintrag
+
+                // Werte aus `allData` extrahieren
+                Set<String> uniqueValues = extractColumnData(comboIndex);
+                for (String value : uniqueValues) {
+                    comboBox.addItem(value);
+                }
+                comboIndex++;
+            }
+        }
+
+        filterPanel.revalidate();
+        filterPanel.repaint();
     }
 
     public void loadJsonConfig(String jsonText) {
